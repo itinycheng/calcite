@@ -569,6 +569,7 @@ public class Bindables {
       return new BindableValues(getCluster(), rowType, tuples, traitSet);
     }
 
+    @Override
     public Class<Object[]> getElementType() {
       return Object[].class;
     }

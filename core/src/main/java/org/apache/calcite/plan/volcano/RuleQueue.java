@@ -470,7 +470,7 @@ class RuleQueue {
         for (VolcanoRuleMatch match2 : matchList) {
           ++i;
           if (match == null
-              || MATCH_COMPARATOR.compare(match2, match) < 0) {
+              || MATCH_COMPARATOR.compare(match2, match) < 0) {  //tiny note: compare with importance in RelSubSet,
             bestPos = i;
             match = match2;
           }

@@ -77,7 +77,7 @@ public class CsvTableScan extends TableScan implements EnumerableRel {
     return builder.build();
   }
 
-  @Override public void register(RelOptPlanner planner) {
+  @Override public void register(RelOptPlanner planner) { // tiny note: invoked by VolcanoPlanner.setRoot -> VolcanoPlanner.registerClass, can add/remove rules in planner
     planner.addRule(CsvProjectTableScanRule.INSTANCE);
   }
 
@@ -95,7 +95,7 @@ public class CsvTableScan extends TableScan implements EnumerableRel {
             / ((double) table.getRowType().getFieldCount() + 2D));
   }
 
-  public Result implement(EnumerableRelImplementor implementor, Prefer pref) {
+  public Result implement(EnumerableRelImplementor implementor, Prefer pref) { // tiny note: called by EnumerableInterpretable.toBindable， generated code
     PhysType physType =
         PhysTypeImpl.of(
             implementor.getTypeFactory(),

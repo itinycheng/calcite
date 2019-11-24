@@ -39,8 +39,8 @@ public class RelOptRuleOperand {
   //~ Instance fields --------------------------------------------------------
 
   private RelOptRuleOperand parent;
-  private RelOptRule rule;
-  private final Predicate<RelNode> predicate;
+  private RelOptRule rule;  // tiny note: rule of current Operand have, assigned when creating Rule, [acquire some message from `flattenOperands`]
+  private final Predicate<RelNode> predicate; // tiny note: calling by VolcanoPlanner.fireRules->RelOptRuleOperand.matches
 
   // REVIEW jvs 29-Aug-2004: some of these are Volcano-specific and should be
   // factored out

@@ -3924,7 +3924,7 @@ public class DruidAdapter2IT {
   @Test
   public void testCastTimestamp1() {
     final String sql = "Select cast(\"timestamp\" as varchar) as t"
-        + " from \"foodmart\" order by t limit 1";
+        + " from \"foodmart\" where product_id = 1 order by t limit 1";
 
     sql(sql, FOODMART)
         .returnsOrdered("T=1997-01-01 00:00:00")
@@ -3934,8 +3934,8 @@ public class DruidAdapter2IT {
 
   @Test
   public void testCastTimestamp2() {
-    final String sql = "Select cast(cast(\"timestamp\" as timestamp) as varchar) as t"
-        + " from \"foodmart\" order by t limit 1";
+    final String sql = "Select SUM(\"store_sales\") as t"
+        + " from \"foodmart\" where \"product_id\" = 1";
 
     sql(sql, FOODMART)
         .returnsOrdered("T=1997-01-01 00:00:00")

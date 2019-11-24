@@ -62,7 +62,7 @@ public abstract class AbstractRelOptPlanner implements RelOptPlanner {
 
   private final AtomicBoolean cancelFlag;
 
-  private final Set<Class<? extends RelNode>> classes = new HashSet<>();
+  private final Set<Class<? extends RelNode>> classes = new HashSet<>(); // tiny note: a set of registered class. call planner.changeTraits/planner.setRoot will put RelNodes' class in it
 
   private final Set<RelTrait> traits = new HashSet<>();
 
@@ -228,14 +228,14 @@ public abstract class AbstractRelOptPlanner implements RelOptPlanner {
     }
     for (RelTrait trait : node.getTraitSet()) {
       if (traits.add(trait)) {
-        trait.register(this);
+        trait.register(this); // tiny note: register plan to relNode.traitSet
       }
     }
   }
 
   /** Called when a new class of {@link RelNode} is seen. */
   protected void onNewClass(RelNode node) {
-    node.register(this);
+    node.register(this); //tiny note: invoke RelNode's register method,
   }
 
   public RelTraitSet emptyTraitSet() {

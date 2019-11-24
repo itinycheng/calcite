@@ -53,7 +53,7 @@ public class CsvTranslatableTable extends CsvTable
    *
    * <p>Called from generated code. */
   public Enumerable<Object> project(final DataContext root,
-      final int[] fields) {
+      final int[] fields) { // tiny note: calling this method defined in CsvTableScan.implement
     final AtomicBoolean cancelFlag = DataContext.Variable.CANCEL_FLAG.get(root);
     return new AbstractEnumerable<Object>() {
       public Enumerator<Object> enumerator() {
@@ -63,7 +63,7 @@ public class CsvTranslatableTable extends CsvTable
   }
 
   public Expression getExpression(SchemaPlus schema, String tableName,
-      Class clazz) {
+      Class clazz) { // tiny note： called by CsvTableScan.implement -> EnumerableInterpretable.toBindable, return: Expression`root.getRootSchema().getSubSchema("CSV").getTable("DATE")`
     return Schemas.tableExpression(schema, getElementType(), tableName, clazz);
   }
 

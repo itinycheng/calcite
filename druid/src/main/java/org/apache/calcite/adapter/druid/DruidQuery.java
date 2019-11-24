@@ -16,6 +16,14 @@
  */
 package org.apache.calcite.adapter.druid;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.avatica.ColumnMetaData;
 import org.apache.calcite.avatica.util.DateTimeUtils;
@@ -64,18 +72,10 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Litmus;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
-
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-
 import org.joda.time.Interval;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.util.ArrayList;
@@ -87,8 +87,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.regex.Pattern;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 /**
  * Relational expression representing a scan of a Druid data set.
@@ -626,7 +624,7 @@ public class DruidQuery extends AbstractRelNode implements BindableRel {
     return table.unwrap(ScannableTable.class).scan(dataContext);
   }
 
-  @Override public Node implement(InterpreterImplementor implementor) {
+  @Override public Node implement(InterpreterImplementor implementor) { // tiny note: called by Interpreter<init>[compiler.visitRoot(rel)]
     return new DruidQueryNode(implementor.compiler, this);
   }
 

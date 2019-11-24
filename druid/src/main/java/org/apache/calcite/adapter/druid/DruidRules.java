@@ -139,7 +139,7 @@ public class DruidRules {
           relBuilderFactory, null);
     }
 
-    public void onMatch(RelOptRuleCall call) {
+    public void onMatch(RelOptRuleCall call) {  // tiny note: invoked by VolcanoPlanner.findBestExp
       final Filter filter = call.rel(0);
       final DruidQuery query = call.rel(1);
       final RelOptCluster cluster = filter.getCluster();
@@ -209,7 +209,7 @@ public class DruidRules {
             .filter(residualPreds)
             .build();
       }
-      call.transformTo(newDruidQuery);
+      call.transformTo(newDruidQuery); //regist new RelNode to VolcanoPlanner
     }
 
     /**

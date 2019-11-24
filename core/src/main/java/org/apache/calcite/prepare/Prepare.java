@@ -277,7 +277,7 @@ public abstract class Prepare {
 
     // Display logical plans before view expansion, plugging in physical
     // storage and decorrelation
-    if (sqlExplain != null) {
+     if (sqlExplain != null) {
       SqlExplain.Depth explainDepth = sqlExplain.getDepth();
       SqlExplainFormat format = sqlExplain.getFormat();
       SqlExplainLevel detailLevel = sqlExplain.getDetailLevel();

@@ -461,7 +461,7 @@ public class VolcanoPlanner extends AbstractRelOptPlanner {
     // it.
     for (RelOptRuleOperand operand : rule.getOperands()) {
       for (Class<? extends RelNode> subClass
-          : subClasses(operand.getMatchedClass())) {
+          : subClasses(operand.getMatchedClass())) { //tiny note: select class in AbstractRelOptPlanner.classes which is a sub class of `operand.getMatchedClass()`, only add RelSubSet&RelNode until user regist their own RelNodes.
         classOperands.put(subClass, operand);
       }
     }
@@ -507,7 +507,7 @@ public class VolcanoPlanner extends AbstractRelOptPlanner {
     return true;
   }
 
-  @Override protected void onNewClass(RelNode node) {
+  @Override protected void onNewClass(RelNode node) {// tiny note: recursive visit VolcanoPlanner.ruleSet and get node matched rule.Operands to VolcanoPlanner.classOperands
     super.onNewClass(node);
 
     // Create mappings so that instances of this class will match existing
@@ -515,7 +515,7 @@ public class VolcanoPlanner extends AbstractRelOptPlanner {
     final Class<? extends RelNode> clazz = node.getClass();
     for (RelOptRule rule : ruleSet) {
       for (RelOptRuleOperand operand : rule.getOperands()) {
-        if (operand.getMatchedClass().isAssignableFrom(clazz)) {
+        if (operand.getMatchedClass().isAssignableFrom(clazz)) { // tiny note: find operand who's matchedClass is parent of user's RelNode clazz.
           classOperands.put(clazz, operand);
         }
       }
@@ -1510,8 +1510,8 @@ public class VolcanoPlanner extends AbstractRelOptPlanner {
    */
   void fireRules(
       RelNode rel,
-      boolean deferred) {
-    for (RelOptRuleOperand operand : classOperands.get(rel.getClass())) {
+      boolean deferred) { // tiny note: invoke by VolcanoPlanner.register
+    for (RelOptRuleOperand operand : classOperands.get(rel.getClass())){// tiny note: TODO
       if (operand.matches(rel)) {
         final VolcanoRuleCall ruleCall;
         if (deferred) {
@@ -1652,7 +1652,7 @@ public class VolcanoPlanner extends AbstractRelOptPlanner {
           + " != " + traitDefs.size());
     }
 
-    // Ensure that its sub-expressions are registered.
+    // Ensure that its sub-expressions are registered. tiny's note: recursive invoke current rel's method isValid.
     rel = rel.onRegister(this);
 
     // Record its provenance. (Rule call may be null.)
@@ -1749,7 +1749,7 @@ public class VolcanoPlanner extends AbstractRelOptPlanner {
 
     registerCount++;
     final int subsetBeforeCount = set.subsets.size();
-    RelSubset subset = addRelToSet(rel, set);
+    RelSubset subset = addRelToSet(rel, set);   // tiny note: add relNode to RelSet and init RelSubSet
 
     final RelNode xx = mapDigestToRel.put(key, rel);
     assert xx == null || xx == rel : rel.getDigest();
@@ -1791,8 +1791,8 @@ public class VolcanoPlanner extends AbstractRelOptPlanner {
     // Make sure this rel's subset importance is updated
     ruleQueue.recompute(subset, true);
 
-    // Queue up all rules triggered by this relexp's creation.
-    fireRules(rel, true);
+    // Queue up all rules triggered by this relexp's creation. TODO tiny note: classOperands.match
+    fireRules(rel, true); // tiny note: create VolcanoRuleCall with RelOPtRuleOperands that matched rel
 
     // It's a new subset.
     if (set.subsets.size() > subsetBeforeCount) {
@@ -1945,7 +1945,7 @@ public class VolcanoPlanner extends AbstractRelOptPlanner {
      * Rather than invoking the rule (as the base method does), creates a
      * {@link VolcanoRuleMatch} which can be invoked later.
      */
-    protected void onMatch() {
+    protected void onMatch() { // tiny note: invoked by VolcanoPlanner.fireRules->VolcanoRuleCall.matchRecurse when operands matched, add matched Rule to ruleQueue, ruleQueue will be used in findBestExp()
       final VolcanoRuleMatch match =
           new VolcanoRuleMatch(
               volcanoPlanner,

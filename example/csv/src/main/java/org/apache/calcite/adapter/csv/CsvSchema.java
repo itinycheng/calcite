@@ -65,7 +65,7 @@ public class CsvSchema extends AbstractSchema {
         : null;
   }
 
-  @Override protected Map<String, Table> getTableMap() {
+  @Override public Map<String, Table> getTableMap() {
     if (tableMap == null) {
       tableMap = createTableMap();
     }

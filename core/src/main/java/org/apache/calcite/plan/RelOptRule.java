@@ -345,7 +345,7 @@ public abstract class RelOptRule {
    * @return Flattened list of operands
    */
   private List<RelOptRuleOperand> flattenOperands(
-      RelOptRuleOperand rootOperand) {
+      RelOptRuleOperand rootOperand) {// tiny note: flatten operands to one-dim List and keep parent/child relationship between each other, each operand have a cursor point to Rule it belongs
     final List<RelOptRuleOperand> operandList = new ArrayList<>();
 
     // Flatten the operands into a list.
@@ -491,7 +491,7 @@ public abstract class RelOptRule {
    *             this rule
    * @return whether this RelOptRule matches a given RelOptRuleCall
    */
-  public boolean matches(RelOptRuleCall call) {
+  public boolean matches(RelOptRuleCall call) { // tiny note: invoked by VolcanoPlanner.fireRules->VolcanoRuleCall.matchRecurse, call this method before put RuleCall to volcanoPlanner.ruleQueue for future relNode optimize, you can choose overwrite it in your own Rules
     return true;
   }
 

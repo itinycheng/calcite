@@ -48,7 +48,7 @@ public class CsvProjectTableScanRule extends RelOptRule {
         "CsvProjectTableScanRule");
   }
 
-  @Override public void onMatch(RelOptRuleCall call) {
+  @Override public void onMatch(RelOptRuleCall call) { // tiny note: called by VolcanoPlanner.findBestExp
     final LogicalProject project = call.rel(0);
     final CsvTableScan scan = call.rel(1);
     int[] fields = getProjectFields(project.getProjects());
@@ -56,8 +56,8 @@ public class CsvProjectTableScanRule extends RelOptRule {
       // Project contains expressions more complex than just field references.
       return;
     }
-    call.transformTo(
-        new CsvTableScan(
+    call.transformTo(   // tiny note: regist new RelNode[CsvTableScan] to VolcanoPlanner and get matched Rules, fireRules, add Rules to ruleQueue for next optimize cycle
+        new CsvTableScan( // tiny note: what's going on if planner is HepPlanner
             scan.getCluster(),
             scan.getTable(),
             scan.csvTable,

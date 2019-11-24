@@ -239,7 +239,7 @@ public class VolcanoRuleCall extends RelOptRuleCall {
   /**
    * Applies this rule, with a given relational expression in the first slot.
    */
-  void match(RelNode rel) {
+  void match(RelNode rel) { // tiny note: recurse init rels's value
     assert getOperand0().matches(rel) : "precondition";
     final int solve = 0;
     int operandOrdinal = getOperand0().solveOrder[solve];
