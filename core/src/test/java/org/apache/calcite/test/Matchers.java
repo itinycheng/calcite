@@ -28,10 +28,10 @@ import org.hamcrest.BaseMatcher;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.CustomTypeSafeMatcher;
 import org.hamcrest.Description;
-import org.hamcrest.Factory;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeMatcher;
 import org.hamcrest.core.Is;
+import org.hamcrest.core.StringContains;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -129,7 +129,6 @@ public class Matchers {
    * Creates a matcher that matches when the examined object is within
    * {@code epsilon} of the specified <code>operand</code>.
    */
-  @Factory
   public static <T extends Number> Matcher<T> within(T value, double epsilon) {
     return new IsWithin<T>(value, epsilon);
   }
@@ -174,19 +173,30 @@ public class Matchers {
    *
    * @see Util#toLinux(String)
    */
-  @Factory
   public static Matcher<String> isLinux(final String value) {
     return compose(Is.is(value), input -> input == null ? null : Util.toLinux(input));
   }
 
   /**
-   * Creates a Matcher that matches a {@link RelNode} its string representation,
-   * after converting Windows-style line endings ("\r\n")
+   * Creates a Matcher that matches a {@link RelNode} if its string
+   * representation, after converting Windows-style line endings ("\r\n")
    * to Unix-style line endings ("\n"), is equal to the given {@code value}.
    */
-  @Factory
   public static Matcher<RelNode> hasTree(final String value) {
     return compose(Is.is(value), input -> {
+      // Convert RelNode to a string with Linux line-endings
+      return Util.toLinux(RelOptUtil.toString(input));
+    });
+  }
+
+  /**
+   * Creates a Matcher that matches a {@link RelNode} if its string
+   * representation, after converting Windows-style line endings ("\r\n")
+   * to Unix-style line endings ("\n"), contains the given {@code value}
+   * as a substring.
+   */
+  public static Matcher<RelNode> inTree(final String value) {
+    return compose(StringContains.containsString(value), input -> {
       // Convert RelNode to a string with Linux line-endings
       return Util.toLinux(RelOptUtil.toString(input));
     });
@@ -208,7 +218,6 @@ public class Matchers {
    *
    * @see Util#toLinux(String)
    */
-  @Factory
   public static Matcher<String> containsStringLinux(String value) {
     return compose(CoreMatchers.containsString(value), Util::toLinux);
   }

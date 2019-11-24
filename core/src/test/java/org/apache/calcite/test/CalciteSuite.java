@@ -42,6 +42,7 @@ import org.apache.calcite.rel.rules.SortRemoveRuleTest;
 import org.apache.calcite.rex.RexBuilderTest;
 import org.apache.calcite.rex.RexExecutorTest;
 import org.apache.calcite.rex.RexSqlStandardConvertletTableTest;
+import org.apache.calcite.runtime.AutomatonTest;
 import org.apache.calcite.runtime.BinarySearchTest;
 import org.apache.calcite.runtime.EnumerablesTest;
 import org.apache.calcite.sql.SqlSetOptionOperatorTest;
@@ -111,6 +112,8 @@ import org.junit.runners.Suite;
     SqlJsonFunctionsTest.class,
     SqlTypeNameTest.class,
     ModelTest.class,
+    TypeCoercionTest.class,
+    TypeCoercionConverterTest.class,
     SqlValidatorFeatureTest.class,
     VolcanoPlannerTraitTest.class,
     InterpreterTest.class,
@@ -124,6 +127,7 @@ import org.junit.runners.Suite;
     RexProgramTest.class,
     SqlOperatorBindingTest.class,
     RexTransformerTest.class,
+    AutomatonTest.class,
     BinarySearchTest.class,
     EnumerablesTest.class,
     ExceptionMessageTest.class,
@@ -136,6 +140,7 @@ import org.junit.runners.Suite;
     SqlValidatorUtilTest.class,
     TypeFinderTest.class,
     RexShuttleTest.class,
+    SqlHintsConverterTest.class,
 
     // medium tests (above 0.1s)
     SqlParserTest.class,

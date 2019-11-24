@@ -36,6 +36,7 @@ import org.apache.calcite.linq4j.function.Predicate2;
 
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 
@@ -528,45 +529,67 @@ public abstract class EnumerableDefaults {
 
   /**
    * Produces the set difference of two sequences by
-   * using the default equality comparer to compare values. (Defined
-   * by Enumerable.)
+   * using the default equality comparer to compare values,
+   * eliminate duplicates. (Defined by Enumerable.)
    */
   public static <TSource> Enumerable<TSource> except(
       Enumerable<TSource> source0, Enumerable<TSource> source1) {
-    Set<TSource> set = new HashSet<>();
-    source0.into(set);
+    return except(source0, source1, false);
+  }
+
+  /**
+   * Produces the set difference of two sequences by
+   * using the default equality comparer to compare values,
+   * using {@code all} to indicate whether to eliminate duplicates.
+   * (Defined by Enumerable.)
+   */
+  public static <TSource> Enumerable<TSource> except(
+      Enumerable<TSource> source0, Enumerable<TSource> source1, boolean all) {
+    Collection<TSource> collection = all ? HashMultiset.create() : new HashSet<>();
+    source0.into(collection);
     try (Enumerator<TSource> os = source1.enumerator()) {
       while (os.moveNext()) {
         TSource o = os.current();
-        set.remove(o);
+        collection.remove(o);
       }
-      return Linq4j.asEnumerable(set);
+      return Linq4j.asEnumerable(collection);
     }
   }
 
   /**
    * Produces the set difference of two sequences by
    * using the specified {@code EqualityComparer<TSource>} to compare
-   * values.
+   * values, eliminate duplicates.
    */
   public static <TSource> Enumerable<TSource> except(
       Enumerable<TSource> source0, Enumerable<TSource> source1,
       EqualityComparer<TSource> comparer) {
+    return except(source0, source1, comparer, false);
+  }
+
+  /**
+   * Produces the set difference of two sequences by
+   * using the specified {@code EqualityComparer<TSource>} to compare
+   * values, using {@code all} to indicate whether to eliminate duplicates.
+   */
+  public static <TSource> Enumerable<TSource> except(
+      Enumerable<TSource> source0, Enumerable<TSource> source1,
+      EqualityComparer<TSource> comparer, boolean all) {
     if (comparer == Functions.identityComparer()) {
-      return except(source0, source1);
+      return except(source0, source1, all);
     }
-    Set<Wrapped<TSource>> set = new HashSet<>();
+    Collection<Wrapped<TSource>> collection = all ? HashMultiset.create() : new HashSet<>();
     Function1<TSource, Wrapped<TSource>> wrapper = wrapperFor(comparer);
-    source0.select(wrapper).into(set);
+    source0.select(wrapper).into(collection);
     try (Enumerator<Wrapped<TSource>> os =
              source1.select(wrapper).enumerator()) {
       while (os.moveNext()) {
         Wrapped<TSource> o = os.current();
-        set.remove(o);
+        collection.remove(o);
       }
     }
     Function1<Wrapped<TSource>, TSource> unwrapper = unwrapper();
-    return Linq4j.asEnumerable(set).select(unwrapper);
+    return Linq4j.asEnumerable(collection).select(unwrapper);
   }
 
   /**
@@ -945,50 +968,72 @@ public abstract class EnumerableDefaults {
 
   /**
    * Produces the set intersection of two sequences by
-   * using the default equality comparer to compare values. (Defined
-   * by Enumerable.)
+   * using the default equality comparer to compare values,
+   * eliminate duplicates.(Defined by Enumerable.)
    */
   public static <TSource> Enumerable<TSource> intersect(
       Enumerable<TSource> source0, Enumerable<TSource> source1) {
-    Set<TSource> set0 = new HashSet<>();
-    source0.into(set0);
-    Set<TSource> set1 = new HashSet<>();
-    try (Enumerator<TSource> os = source1.enumerator()) {
+    return intersect(source0, source1, false);
+  }
+
+  /**
+   * Produces the set intersection of two sequences by
+   * using the default equality comparer to compare values,
+   * using {@code all} to indicate whether to eliminate duplicates.
+   * (Defined by Enumerable.)
+   */
+  public static <TSource> Enumerable<TSource> intersect(
+      Enumerable<TSource> source0, Enumerable<TSource> source1, boolean all) {
+    Collection<TSource> set1 = all ? HashMultiset.create() : new HashSet<>();
+    source1.into(set1);
+    Collection<TSource> resultCollection = all ? HashMultiset.create() : new HashSet<>();
+    try (Enumerator<TSource> os = source0.enumerator()) {
       while (os.moveNext()) {
         TSource o = os.current();
-        if (set0.contains(o)) {
-          set1.add(o);
+        if (set1.remove(o)) {
+          resultCollection.add(o);
         }
       }
     }
-    return Linq4j.asEnumerable(set1);
+    return Linq4j.asEnumerable(resultCollection);
   }
 
   /**
    * Produces the set intersection of two sequences by
    * using the specified {@code EqualityComparer<TSource>} to compare
-   * values.
+   * values, eliminate duplicates.
    */
   public static <TSource> Enumerable<TSource> intersect(
       Enumerable<TSource> source0, Enumerable<TSource> source1,
       EqualityComparer<TSource> comparer) {
+    return intersect(source0, source1, comparer, false);
+  }
+
+  /**
+   * Produces the set intersection of two sequences by
+   * using the specified {@code EqualityComparer<TSource>} to compare
+   * values, using {@code all} to indicate whether to eliminate duplicates.
+   */
+  public static <TSource> Enumerable<TSource> intersect(
+      Enumerable<TSource> source0, Enumerable<TSource> source1,
+      EqualityComparer<TSource> comparer, boolean all) {
     if (comparer == Functions.identityComparer()) {
-      return intersect(source0, source1);
+      return intersect(source0, source1, all);
     }
-    Set<Wrapped<TSource>> set0 = new HashSet<>();
+    Collection<Wrapped<TSource>> collection = all ? HashMultiset.create() : new HashSet<>();
     Function1<TSource, Wrapped<TSource>> wrapper = wrapperFor(comparer);
-    source0.select(wrapper).into(set0);
-    Set<Wrapped<TSource>> set1 = new HashSet<>();
-    try (Enumerator<Wrapped<TSource>> os = source1.select(wrapper).enumerator()) {
+    source1.select(wrapper).into(collection);
+    Collection<Wrapped<TSource>> resultCollection = all ? HashMultiset.create() : new HashSet<>();
+    try (Enumerator<Wrapped<TSource>> os = source0.select(wrapper).enumerator()) {
       while (os.moveNext()) {
         Wrapped<TSource> o = os.current();
-        if (set0.contains(o)) {
-          set1.add(o);
+        if (collection.remove(o)) {
+          resultCollection.add(o);
         }
       }
     }
     Function1<Wrapped<TSource>, TSource> unwrapper = unwrapper();
-    return Linq4j.asEnumerable(set1).select(unwrapper);
+    return Linq4j.asEnumerable(resultCollection).select(unwrapper);
   }
 
   /**
@@ -1046,7 +1091,7 @@ public abstract class EnumerableDefaults {
       Function2<TSource, TInner, TResult> resultSelector,
       EqualityComparer<TKey> comparer, boolean generateNullsOnLeft,
       boolean generateNullsOnRight) {
-    return hashJoin_(
+    return hashEquiJoin_(
         outer,
         inner,
         outerKeySelector,
@@ -1057,9 +1102,45 @@ public abstract class EnumerableDefaults {
         generateNullsOnRight);
   }
 
+  /**
+   * Correlates the elements of two sequences based on
+   * matching keys. A specified {@code EqualityComparer<TSource>} is used to
+   * compare keys.A predicate is used to filter the join result per-row.
+   */
+  public static <TSource, TInner, TKey, TResult> Enumerable<TResult> hashJoin(
+      Enumerable<TSource> outer, Enumerable<TInner> inner,
+      Function1<TSource, TKey> outerKeySelector,
+      Function1<TInner, TKey> innerKeySelector,
+      Function2<TSource, TInner, TResult> resultSelector,
+      EqualityComparer<TKey> comparer, boolean generateNullsOnLeft,
+      boolean generateNullsOnRight,
+      Predicate2<TSource, TInner> predicate) {
+    if (predicate == null) {
+      return hashEquiJoin_(
+          outer,
+          inner,
+          outerKeySelector,
+          innerKeySelector,
+          resultSelector,
+          comparer,
+          generateNullsOnLeft,
+          generateNullsOnRight);
+    } else {
+      return hashJoinWithPredicate_(
+          outer,
+          inner,
+          outerKeySelector,
+          innerKeySelector,
+          resultSelector,
+          comparer,
+          generateNullsOnLeft,
+          generateNullsOnRight, predicate);
+    }
+  }
+
   /** Implementation of join that builds the right input and probes with the
    * left. */
-  private static <TSource, TInner, TKey, TResult> Enumerable<TResult> hashJoin_(
+  private static <TSource, TInner, TKey, TResult> Enumerable<TResult> hashEquiJoin_(
       final Enumerable<TSource> outer, final Enumerable<TInner> inner,
       final Function1<TSource, TKey> outerKeySelector,
       final Function1<TInner, TKey> innerKeySelector,
@@ -1123,6 +1204,115 @@ public abstract class EnumerableDefaults {
                     unmatchedKeys.remove(outerKey);
                   }
                   innerEnumerable = innerLookup.get(outerKey);
+                }
+              }
+              if (innerEnumerable == null
+                  || !innerEnumerable.any()) {
+                if (generateNullsOnRight) {
+                  inners = Linq4j.singletonNullEnumerator();
+                } else {
+                  inners = Linq4j.emptyEnumerator();
+                }
+              } else {
+                inners = innerEnumerable.enumerator();
+              }
+            }
+          }
+
+          public void reset() {
+            outers.reset();
+          }
+
+          public void close() {
+            outers.close();
+          }
+        };
+      }
+    };
+  }
+
+  /** Implementation of join that builds the right input and probes with the
+   * left */
+  private static <TSource, TInner, TKey, TResult> Enumerable<TResult> hashJoinWithPredicate_(
+      final Enumerable<TSource> outer, final Enumerable<TInner> inner,
+      final Function1<TSource, TKey> outerKeySelector,
+      final Function1<TInner, TKey> innerKeySelector,
+      final Function2<TSource, TInner, TResult> resultSelector,
+      final EqualityComparer<TKey> comparer, final boolean generateNullsOnLeft,
+      final boolean generateNullsOnRight, final Predicate2<TSource, TInner> predicate) {
+
+    return new AbstractEnumerable<TResult>() {
+      public Enumerator<TResult> enumerator() {
+        /**
+         * the innerToLookUp will refer the inner , if current join
+         * is a right join, we should figure out the right list first, if
+         * not, then keep the original inner here.
+         */
+        final Enumerable<TInner> innerToLookUp = generateNullsOnLeft
+            ? Linq4j.asEnumerable(inner.toList())
+            : inner;
+
+        final Lookup<TKey, TInner> innerLookup =
+            comparer == null
+                ? innerToLookUp.toLookup(innerKeySelector)
+                : innerToLookUp
+                    .toLookup(innerKeySelector, comparer);
+
+        return new Enumerator<TResult>() {
+          Enumerator<TSource> outers = outer.enumerator();
+          Enumerator<TInner> inners = Linq4j.emptyEnumerator();
+          List<TInner> innersUnmatched =
+              generateNullsOnLeft
+                  ? new ArrayList<>(innerToLookUp.toList())
+                  : null;
+
+          public TResult current() {
+            return resultSelector.apply(outers.current(), inners.current());
+          }
+
+          public boolean moveNext() {
+            for (;;) {
+              if (inners.moveNext()) {
+                return true;
+              }
+              if (!outers.moveNext()) {
+                if (innersUnmatched != null) {
+                  inners = Linq4j.enumerator(innersUnmatched);
+                  outers.close();
+                  outers = Linq4j.singletonNullEnumerator();
+                  outers.moveNext();
+                  innersUnmatched = null; // don't do the 'leftovers' again
+                  continue;
+                }
+                return false;
+              }
+              final TSource outer = outers.current();
+              Enumerable<TInner> innerEnumerable;
+              if (outer == null) {
+                innerEnumerable = null;
+              } else {
+                final TKey outerKey = outerKeySelector.apply(outer);
+                if (outerKey == null) {
+                  innerEnumerable = null;
+                } else {
+                  innerEnumerable = innerLookup.get(outerKey);
+                  //apply predicate to filter per-row
+                  if (innerEnumerable != null) {
+                    final List<TInner> matchedInners = new ArrayList<>();
+                    try (Enumerator<TInner> innerEnumerator =
+                        innerEnumerable.enumerator()) {
+                      while (innerEnumerator.moveNext()) {
+                        final TInner inner = innerEnumerator.current();
+                        if (predicate.apply(outer, inner)) {
+                          matchedInners.add(inner);
+                        }
+                      }
+                    }
+                    innerEnumerable = Linq4j.asEnumerable(matchedInners);
+                    if (innersUnmatched != null) {
+                      innersUnmatched.removeAll(matchedInners);
+                    }
+                  }
                 }
               }
               if (innerEnumerable == null
@@ -1281,6 +1471,172 @@ public abstract class EnumerableDefaults {
   }
 
   /**
+   * <p>Fetches blocks of size {@code batchSize} from {@code outer},
+   * storing each block into a list ({@code outerValues}).
+   * For each block, it uses the {@code inner} function to
+   * obtain an enumerable with the correlated rows from the right (inner) input.</p>
+   *
+   * <p>Each result present in the {@code innerEnumerator} has matched at least one
+   * value from the block {@code outerValues}.
+   * At this point a mini nested loop is performed between the outer values
+   * and inner values using the {@code predicate} to find out the actual matching join results.</p>
+   *
+   * <p>In order to optimize this mini nested loop, during the first iteration
+   * (the first value from {@code outerValues}) we use the {@code innerEnumerator}
+   * to compare it to inner rows, and at the same time we fill a list ({@code innerValues})
+   * with said {@code innerEnumerator} rows. In the subsequent iterations
+   * (2nd, 3rd, etc. value from {@code outerValues}) the list {@code innerValues} is used,
+   * since it contains all the {@code innerEnumerator} values,
+   * which were stored in the first iteration.</p>
+   */
+  public static <TSource, TInner, TResult> Enumerable<TResult> correlateBatchJoin(
+      final JoinType joinType,
+      final Enumerable<TSource> outer,
+      final Function1<List<TSource>, Enumerable<TInner>> inner,
+      final Function2<TSource, TInner, TResult> resultSelector,
+      final Predicate2<TSource, TInner> predicate,
+      final int batchSize) {
+    return new AbstractEnumerable<TResult>() {
+      @Override public Enumerator<TResult> enumerator() {
+        return new Enumerator<TResult>() {
+          Enumerator<TSource> outerEnumerator = outer.enumerator();
+          List<TSource> outerValues = new ArrayList<>(batchSize);
+          List<TInner> innerValues = new ArrayList<>();
+          TSource outerValue;
+          TInner innerValue;
+          Enumerable<TInner> innerEnumerable;
+          Enumerator<TInner> innerEnumerator;
+          boolean innerEnumHasNext = false;
+          boolean atLeastOneResult = false;
+          int i = -1; // outer position
+          int j = -1; // inner position
+
+          @Override public TResult current() {
+            return resultSelector.apply(outerValue, innerValue);
+          }
+
+          @Override public boolean moveNext() {
+            while (true) {
+              // Fetch a new batch
+              if (i == outerValues.size() || i == -1) {
+                i = 0;
+                j = 0;
+                outerValues.clear();
+                innerValues.clear();
+                while (outerValues.size() < batchSize && outerEnumerator.moveNext()) {
+                  TSource tSource = outerEnumerator.current();
+                  outerValues.add(tSource);
+                }
+                if (outerValues.isEmpty()) {
+                  return false;
+                }
+                innerEnumerable = inner.apply(new AbstractList<TSource>() {
+                  // If the last batch isn't complete fill it with the first value
+                  // No harm since it's a disjunction
+                  @Override public TSource get(final int index) {
+                    return index < outerValues.size() ? outerValues.get(index) : outerValues.get(0);
+                  }
+                  @Override public int size() {
+                    return batchSize;
+                  }
+                });
+                if (innerEnumerable == null) {
+                  innerEnumerable = Linq4j.emptyEnumerable();
+                }
+                innerEnumerator = innerEnumerable.enumerator();
+                innerEnumHasNext = innerEnumerator.moveNext();
+
+                // If no inner values skip the whole batch
+                // in case of SEMI and INNER join
+                if (!innerEnumHasNext
+                    && (joinType == JoinType.SEMI || joinType == JoinType.INNER)) {
+                  i = outerValues.size();
+                  continue;
+                }
+              }
+              if (innerHasNext()) {
+                outerValue = outerValues.get(i); // get current outer value
+                nextInnerValue();
+                // Compare current block row to current inner value
+                if (predicate.apply(outerValue, innerValue)) {
+                  atLeastOneResult = true;
+                  // Skip the rest of inner values in case of
+                  // ANTI and SEMI when a match is found
+                  if (joinType == JoinType.ANTI || joinType == JoinType.SEMI) {
+                    // Two ways of skipping inner values,
+                    // enumerator way and ArrayList way
+                    if (i == 0) {
+                      while (innerEnumHasNext) {
+                        innerValues.add(innerEnumerator.current());
+                        innerEnumHasNext = innerEnumerator.moveNext();
+                      }
+                    } else {
+                      j = innerValues.size();
+                    }
+                    if (joinType == JoinType.ANTI) {
+                      continue;
+                    }
+                  }
+                  return true;
+                }
+              } else { // End of inner
+                if (!atLeastOneResult
+                    && (joinType == JoinType.LEFT
+                    || joinType == JoinType.ANTI)) {
+                  outerValue = outerValues.get(i); // get current outer value
+                  innerValue = null;
+                  nextOuterValue();
+                  return true;
+                }
+                nextOuterValue();
+              }
+            }
+          }
+
+          public void nextOuterValue() {
+            i++; // next outerValue
+            j = 0; // rewind innerValues
+            atLeastOneResult = false;
+          }
+
+          private void nextInnerValue() {
+            if (i == 0) {
+              innerValue = innerEnumerator.current();
+              innerValues.add(innerValue);
+              innerEnumHasNext = innerEnumerator.moveNext(); // next enumerator inner value
+            } else {
+              innerValue = innerValues.get(j++); // next ArrayList inner value
+            }
+          }
+
+          private boolean innerHasNext() {
+            return i == 0 ? innerEnumHasNext : j < innerValues.size();
+          }
+
+          @Override public void reset() {
+            outerEnumerator.reset();
+            innerValue = null;
+            outerValue = null;
+            outerValues.clear();
+            innerValues.clear();
+            atLeastOneResult = false;
+            i = -1;
+          }
+
+          @Override public void close() {
+            outerEnumerator.close();
+            if (innerEnumerator != null) {
+              innerEnumerator.close();
+            }
+            outerValue = null;
+            innerValue = null;
+          }
+        };
+      }
+    };
+  }
+
+  /**
    * Returns elements of {@code outer} for which there is a member of
    * {@code inner} with a matching key.
    */
@@ -1288,7 +1644,8 @@ public abstract class EnumerableDefaults {
       final Enumerable<TSource> outer, final Enumerable<TInner> inner,
       final Function1<TSource, TKey> outerKeySelector,
       final Function1<TInner, TKey> innerKeySelector) {
-    return semiJoin(outer, inner, outerKeySelector, innerKeySelector, null, false);
+    return semiEquiJoin_(outer, inner, outerKeySelector, innerKeySelector, null,
+        false);
   }
 
   public static <TSource, TInner, TKey> Enumerable<TSource> semiJoin(
@@ -1296,7 +1653,19 @@ public abstract class EnumerableDefaults {
       final Function1<TSource, TKey> outerKeySelector,
       final Function1<TInner, TKey> innerKeySelector,
       final EqualityComparer<TKey> comparer) {
-    return semiJoin(outer, inner, outerKeySelector, innerKeySelector, comparer, false);
+    return semiEquiJoin_(outer, inner, outerKeySelector, innerKeySelector, comparer,
+        false);
+  }
+
+  public static <TSource, TInner, TKey> Enumerable<TSource> semiJoin(
+      final Enumerable<TSource> outer, final Enumerable<TInner> inner,
+      final Function1<TSource, TKey> outerKeySelector,
+      final Function1<TInner, TKey> innerKeySelector,
+      final EqualityComparer<TKey> comparer,
+      final Predicate2<TSource, TInner> nonEquiPredicate) {
+    return semiJoin(outer, inner, outerKeySelector,
+        innerKeySelector, comparer,
+        false, nonEquiPredicate);
   }
 
   /**
@@ -1307,7 +1676,8 @@ public abstract class EnumerableDefaults {
       final Enumerable<TSource> outer, final Enumerable<TInner> inner,
       final Function1<TSource, TKey> outerKeySelector,
       final Function1<TInner, TKey> innerKeySelector) {
-    return semiJoin(outer, inner, outerKeySelector, innerKeySelector, null, true);
+    return semiEquiJoin_(outer, inner, outerKeySelector, innerKeySelector, null,
+        true);
   }
 
   public static <TSource, TInner, TKey> Enumerable<TSource> antiJoin(
@@ -1315,7 +1685,85 @@ public abstract class EnumerableDefaults {
       final Function1<TSource, TKey> outerKeySelector,
       final Function1<TInner, TKey> innerKeySelector,
       final EqualityComparer<TKey> comparer) {
-    return semiJoin(outer, inner, outerKeySelector, innerKeySelector, comparer, true);
+    return semiEquiJoin_(outer, inner, outerKeySelector, innerKeySelector, comparer,
+        true);
+  }
+
+  public static <TSource, TInner, TKey> Enumerable<TSource> antiJoin(
+      final Enumerable<TSource> outer, final Enumerable<TInner> inner,
+      final Function1<TSource, TKey> outerKeySelector,
+      final Function1<TInner, TKey> innerKeySelector,
+      final EqualityComparer<TKey> comparer,
+      final Predicate2<TSource, TInner> nonEquiPredicate) {
+    return semiJoin(outer, inner, outerKeySelector,
+        innerKeySelector, comparer,
+        true, nonEquiPredicate);
+  }
+
+  /**
+   * Returns elements of {@code outer} for which there is (semi-join) / is not (anti-semi-join)
+   * a member of {@code inner} with a matching key. A specified
+   * {@code EqualityComparer<TSource>} is used to compare keys.
+   * A predicate is used to filter the join result per-row.
+   */
+  public static <TSource, TInner, TKey> Enumerable<TSource> semiJoin(
+      final Enumerable<TSource> outer, final Enumerable<TInner> inner,
+      final Function1<TSource, TKey> outerKeySelector,
+      final Function1<TInner, TKey> innerKeySelector,
+      final EqualityComparer<TKey> comparer,
+      final boolean anti,
+      final Predicate2<TSource, TInner> nonEquiPredicate) {
+    if (nonEquiPredicate == null) {
+      return semiEquiJoin_(outer, inner, outerKeySelector, innerKeySelector,
+          comparer,
+          anti);
+    } else {
+      return semiJoinWithPredicate_(outer, inner, outerKeySelector,
+          innerKeySelector,
+          comparer,
+          anti, nonEquiPredicate);
+    }
+  }
+
+  private static <TSource, TInner, TKey> Enumerable<TSource> semiJoinWithPredicate_(
+      final Enumerable<TSource> outer, final Enumerable<TInner> inner,
+      final Function1<TSource, TKey> outerKeySelector,
+      final Function1<TInner, TKey> innerKeySelector,
+      final EqualityComparer<TKey> comparer,
+      final boolean anti,
+      final Predicate2<TSource, TInner> nonEquiPredicate) {
+
+    return new AbstractEnumerable<TSource>() {
+      public Enumerator<TSource> enumerator() {
+        // CALCITE-2909 Delay the computation of the innerLookup until the
+        // moment when we are sure
+        // that it will be really needed, i.e. when the first outer
+        // enumerator item is processed
+        final Supplier<Lookup<TKey, TInner>> innerLookup = Suppliers.memoize(
+            () ->
+                comparer == null
+                    ? inner.toLookup(innerKeySelector)
+                    : inner.toLookup(innerKeySelector, comparer));
+
+        final Predicate1<TSource> predicate = v0 -> {
+          TKey key = outerKeySelector.apply(v0);
+          if (!innerLookup.get().containsKey(key)) {
+            return anti;
+          }
+          Enumerable<TInner> innersOfKey = innerLookup.get().get(key);
+          try (Enumerator<TInner> os = innersOfKey.enumerator()) {
+            while (os.moveNext()) {
+              TInner v1 = os.current();
+              if (nonEquiPredicate.apply(v0, v1)) {
+                return !anti;
+              }
+            }
+            return anti;
+          }
+        };
+        return EnumerableDefaults.where(outer.enumerator(), predicate);
+      }
+    };
   }
 
   /**
@@ -1323,7 +1771,7 @@ public abstract class EnumerableDefaults {
    * a member of {@code inner} with a matching key. A specified
    * {@code EqualityComparer<TSource>} is used to compare keys.
    */
-  private static <TSource, TInner, TKey> Enumerable<TSource> semiJoin(
+  private static <TSource, TInner, TKey> Enumerable<TSource> semiEquiJoin_(
       final Enumerable<TSource> outer, final Enumerable<TInner> inner,
       final Function1<TSource, TKey> outerKeySelector,
       final Function1<TInner, TKey> innerKeySelector,

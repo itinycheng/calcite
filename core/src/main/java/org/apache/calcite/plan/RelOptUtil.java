@@ -34,7 +34,6 @@ import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.core.Calc;
 import org.apache.calcite.rel.core.CorrelationId;
-import org.apache.calcite.rel.core.EquiJoin;
 import org.apache.calcite.rel.core.Filter;
 import org.apache.calcite.rel.core.Join;
 import org.apache.calcite.rel.core.JoinRelType;
@@ -45,6 +44,9 @@ import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.externalize.RelJsonWriter;
 import org.apache.calcite.rel.externalize.RelWriterImpl;
 import org.apache.calcite.rel.externalize.RelXmlWriter;
+import org.apache.calcite.rel.hint.HintStrategyTable;
+import org.apache.calcite.rel.hint.Hintable;
+import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.logical.LogicalAggregate;
 import org.apache.calcite.rel.logical.LogicalCalc;
 import org.apache.calcite.rel.logical.LogicalFilter;
@@ -382,6 +384,29 @@ public abstract class RelOptUtil {
         + "\nset is " + equivalenceClass.toString()
         + "\nexpression is " + RelOptUtil.toString(newRel);
     throw new AssertionError(s);
+  }
+
+  /**
+   * Copy the {@link org.apache.calcite.rel.hint.RelHint}s from {@code originalRel}
+   * to {@code newRel} if both of them are {@link Hintable}.
+   *
+   * <p>The hints are also filtered by the specified hint strategies.
+   *
+   * @param originalRel Original relational expression
+   * @param newRel      New relational expression
+   * @return A copy of {@code newRel} with hints of {@code originalRel}, or {@code newRel}
+   * directly if one of them are not {@link Hintable}
+   */
+  public static RelNode copyRelHints(RelNode originalRel, RelNode newRel) {
+    if (originalRel instanceof Hintable
+        && newRel instanceof Hintable
+        && ((Hintable) originalRel).getHints().size() > 0) {
+      HintStrategyTable hintStrategies = originalRel.getCluster().getHintStrategies();
+      final List<RelHint> hints = ((Hintable) originalRel).getHints();
+      return ((Hintable) newRel)
+          .attachHints(hintStrategies.apply(hints, newRel));
+    }
+    return newRel;
   }
 
   /**
@@ -862,6 +887,24 @@ public abstract class RelOptUtil {
       List<Boolean> filterNulls) {
     final List<RexNode> nonEquiList = new ArrayList<>();
 
+    splitJoinCondition(left, right, condition, leftKeys, rightKeys,
+        filterNulls, nonEquiList);
+
+    return RexUtil.composeConjunction(
+        left.getCluster().getRexBuilder(), nonEquiList);
+  }
+
+  /** As
+   * {@link #splitJoinCondition(RelNode, RelNode, RexNode, List, List, List)},
+   * but writes non-equi conditions to a conjunctive list. */
+  public static void splitJoinCondition(
+      RelNode left,
+      RelNode right,
+      RexNode condition,
+      List<Integer> leftKeys,
+      List<Integer> rightKeys,
+      List<Boolean> filterNulls,
+      List<RexNode> nonEquiList) {
     splitJoinCondition(
         left.getCluster().getRexBuilder(),
         left.getRowType().getFieldCount(),
@@ -870,9 +913,6 @@ public abstract class RelOptUtil {
         rightKeys,
         filterNulls,
         nonEquiList);
-
-    return RexUtil.composeConjunction(
-        left.getCluster().getRexBuilder(), nonEquiList);
   }
 
   @Deprecated // to be removed before 2.0
@@ -1002,6 +1042,18 @@ public abstract class RelOptUtil {
 
   public static RexNode splitCorrelatedFilterCondition(
       LogicalFilter filter,
+      List<RexNode> joinKeys,
+      List<RexNode> correlatedJoinKeys,
+      boolean extractCorrelatedFieldAccess) {
+    return splitCorrelatedFilterCondition(
+        (Filter) filter,
+        joinKeys,
+        correlatedJoinKeys,
+        extractCorrelatedFieldAccess);
+  }
+
+  public static RexNode splitCorrelatedFilterCondition(
+      Filter filter,
       List<RexNode> joinKeys,
       List<RexNode> correlatedJoinKeys,
       boolean extractCorrelatedFieldAccess) {
@@ -1352,6 +1404,22 @@ public abstract class RelOptUtil {
 
   private static void splitCorrelatedFilterCondition(
       LogicalFilter filter,
+      RexNode condition,
+      List<RexNode> joinKeys,
+      List<RexNode> correlatedJoinKeys,
+      List<RexNode> nonEquiList,
+      boolean extractCorrelatedFieldAccess) {
+    splitCorrelatedFilterCondition(
+        (Filter) filter,
+        condition,
+        joinKeys,
+        correlatedJoinKeys,
+        nonEquiList,
+        extractCorrelatedFieldAccess);
+  }
+
+  private static void splitCorrelatedFilterCondition(
+      Filter filter,
       RexNode condition,
       List<RexNode> joinKeys,
       List<RexNode> correlatedJoinKeys,
@@ -1851,6 +1919,13 @@ public abstract class RelOptUtil {
       registerReductionRules(planner);
     }
 
+  }
+
+  public static StringBuilder appendRelDescription(
+      StringBuilder sb, RelNode rel) {
+    sb.append("rel#").append(rel.getId())
+        .append(':').append(rel.getDigest());
+    return sb;
   }
 
   /**
@@ -3433,28 +3508,53 @@ public abstract class RelOptUtil {
         : condition;
 
     switch (node.getKind()) {
-    case AND:
     case EQUALS:
     case IS_NOT_DISTINCT_FROM:
+      final RexCall call0 = (RexCall) node;
+      final RexNode leftRex = call0.getOperands().get(0);
+      final RexNode rightRex = call0.getOperands().get(1);
+      final ImmutableBitSet leftBits = RelOptUtil.InputFinder.bits(leftRex);
+      final ImmutableBitSet rightBits = RelOptUtil.InputFinder.bits(rightRex);
+      final int pivot = leftCount + extraLeftExprs.size();
+      Side lside = Side.of(leftBits, pivot);
+      Side rside = Side.of(rightBits, pivot);
+      if (!lside.opposite(rside)) {
+        return call0;
+      }
+      // fall through
+    case AND:
       final RexCall call = (RexCall) node;
       final List<RexNode> list = new ArrayList<>();
       List<RexNode> operands = Lists.newArrayList(call.getOperands());
       for (int i = 0; i < operands.size(); i++) {
         RexNode operand = operands.get(i);
-        final int left2 = leftCount + extraLeftExprs.size();
-        final RexNode e =
-            pushDownEqualJoinConditions(
-                operand,
-                leftCount,
-                rightCount,
-                extraLeftExprs,
-                extraRightExprs,
-                builder);
-        final List<RexNode> remainingOperands = Util.skip(operands, i + 1);
-        final int left3 = leftCount + extraLeftExprs.size();
-        fix(remainingOperands, left2, left3);
-        fix(list, left2, left3);
-        list.add(e);
+        if (operand instanceof RexCall) {
+          operand = collapseExpandedIsNotDistinctFromExpr(
+              (RexCall) operand, builder);
+        }
+        if (node.getKind() == SqlKind.AND
+            && operand.getKind() != SqlKind.EQUALS
+            && operand.getKind() != SqlKind.IS_NOT_DISTINCT_FROM) {
+          // one of the join condition is neither EQ nor INDF
+          list.add(operand);
+        } else {
+          final int left2 = leftCount + extraLeftExprs.size();
+          final RexNode e =
+              pushDownEqualJoinConditions(
+                  operand,
+                  leftCount,
+                  rightCount,
+                  extraLeftExprs,
+                  extraRightExprs,
+                  builder);
+          if (!e.equals(operand)) {
+            final List<RexNode> remainingOperands = Util.skip(operands, i + 1);
+            final int left3 = leftCount + extraLeftExprs.size();
+            fix(remainingOperands, left2, left3);
+            fix(list, left2, left3);
+          }
+          list.add(e);
+        }
       }
       if (!list.equals(call.getOperands())) {
         return call.clone(call.getType(), list);
@@ -3859,6 +3959,11 @@ public abstract class RelOptUtil {
       }
       return BOTH;
     }
+
+    public boolean opposite(Side side) {
+      return (this == LEFT && side == RIGHT)
+          || (this == RIGHT && side == LEFT);
+    }
   }
 
   /** Shuttle that finds correlation variables inside a given relational
@@ -3890,12 +3995,6 @@ public abstract class RelOptUtil {
       this.indicator = indicator;
       this.outerJoin = outerJoin;
     }
-  }
-
-  /** Check if it is the join whose condition is based on column equality,
-   * this mostly depends on the physical implementation of the join. */
-  public static boolean forceEquiJoin(Join join) {
-    return join.isSemiJoin() || join instanceof EquiJoin;
   }
 }
 

@@ -16,6 +16,7 @@
  */
 package org.apache.calcite.adapter.file;
 
+import org.apache.calcite.util.Sources;
 import org.apache.calcite.util.TestUtil;
 import org.apache.calcite.util.Util;
 
@@ -121,7 +122,7 @@ public class SqlTest {
     try {
       Properties info = new Properties();
       info.put("model",
-          FileReaderTest.file("target/test-classes/" + model + ".json"));
+          Sources.of(SqlTest.class.getResource("/" + model + ".json")).path());
       connection = DriverManager.getConnection("jdbc:calcite:", info);
       statement = connection.createStatement();
       final ResultSet resultSet = statement.executeQuery(sql);
@@ -389,7 +390,7 @@ public class SqlTest {
   }
 
   /** Test returns the result of two json file joins. */
-  @Test public void testJsonJoinOnString() throws SQLException {
+  @Test public void testJsonJoinOnString() {
     final String sql = "select emps.EMPNO, emps.NAME, depts.deptno from emps\n"
         + "join depts on emps.deptno = depts.deptno";
     final String[] lines = {
@@ -401,7 +402,7 @@ public class SqlTest {
   }
 
   /** The folder contains both JSON files and CSV files joins. */
-  @Test public void testJsonWithCsvJoin() throws SQLException {
+  @Test public void testJsonWithCsvJoin() {
     final String sql = "select emps.empno,\n"
         + " NAME,\n"
         + " \"DATE\".JOINEDAT\n"

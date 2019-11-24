@@ -106,6 +106,7 @@ public class StandardConvertletTable extends ReflectiveConvertletTable {
 
     // Register convertlets for specific objects.
     registerOp(SqlStdOperatorTable.CAST, this::convertCast);
+    registerOp(SqlLibraryOperators.INFIX_CAST, this::convertCast);
     registerOp(SqlStdOperatorTable.IS_DISTINCT_FROM,
         (cx, call) -> convertIsDistinctFrom(cx, call, false));
     registerOp(SqlStdOperatorTable.IS_NOT_DISTINCT_FROM,
@@ -514,7 +515,7 @@ public class StandardConvertletTable extends ReflectiveConvertletTable {
       return castToValidatedType(cx, call, cx.convertExpression(left));
     }
     SqlDataTypeSpec dataType = (SqlDataTypeSpec) right;
-    RelDataType type = dataType.deriveType(typeFactory);
+    RelDataType type = dataType.deriveType(cx.getValidator());
     if (type == null) {
       type = cx.getValidator().getValidatedNodeType(dataType.getTypeName());
     }
@@ -718,6 +719,10 @@ public class StandardConvertletTable extends ReflectiveConvertletTable {
     final InitializerContext initializerContext = new InitializerContext() {
       public RexBuilder getRexBuilder() {
         return rexBuilder;
+      }
+
+      public SqlNode validateExpression(RelDataType rowType, SqlNode expr) {
+        throw new UnsupportedOperationException();
       }
 
       public RexNode convertExpression(SqlNode e) {

@@ -25,11 +25,11 @@ import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlDateLiteral;
 import org.apache.calcite.sql.SqlDialect;
-import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlTimeLiteral;
 import org.apache.calcite.sql.SqlTimestampLiteral;
+import org.apache.calcite.sql.SqlUserDefinedTypeNameSpec;
 import org.apache.calcite.sql.SqlUtil;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.fun.SqlFloorFunction;
@@ -46,7 +46,6 @@ import java.util.List;
  * A <code>SqlDialect</code> implementation for the Oracle database.
  */
 public class OracleSqlDialect extends SqlDialect {
-
   /** OracleDB type system. */
   private static final RelDataTypeSystem ORACLE_TYPE_SYSTEM =
       new RelDataTypeSystemImpl() {
@@ -61,11 +60,12 @@ public class OracleSqlDialect extends SqlDialect {
         }
       };
 
-  public static final SqlDialect DEFAULT =
-      new OracleSqlDialect(EMPTY_CONTEXT
-          .withDatabaseProduct(DatabaseProduct.ORACLE)
-          .withIdentifierQuoteString("\"")
-          .withDataTypeSystem(ORACLE_TYPE_SYSTEM));
+  public static final SqlDialect.Context DEFAULT_CONTEXT = SqlDialect.EMPTY_CONTEXT
+      .withDatabaseProduct(SqlDialect.DatabaseProduct.ORACLE)
+      .withIdentifierQuoteString("\"")
+      .withDataTypeSystem(ORACLE_TYPE_SYSTEM);
+
+  public static final SqlDialect DEFAULT = new OracleSqlDialect(DEFAULT_CONTEXT);
 
   /** Creates an OracleSqlDialect. */
   public OracleSqlDialect(Context context) {
@@ -104,8 +104,9 @@ public class OracleSqlDialect extends SqlDialect {
       return super.getCastSpec(type);
     }
 
-    return new SqlDataTypeSpec(new SqlIdentifier(castSpec, SqlParserPos.ZERO),
-        -1, -1, null, null, SqlParserPos.ZERO);
+    return new SqlDataTypeSpec(
+        new SqlUserDefinedTypeNameSpec(castSpec, SqlParserPos.ZERO),
+        SqlParserPos.ZERO);
   }
 
   @Override protected boolean allowsAs() {

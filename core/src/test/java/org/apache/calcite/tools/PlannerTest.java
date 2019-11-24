@@ -41,12 +41,14 @@ import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.convert.ConverterRule;
+import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.core.RelFactories;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.logical.LogicalFilter;
 import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.rules.FilterMergeRule;
+import org.apache.calcite.rel.rules.JoinToCorrelateRule;
 import org.apache.calcite.rel.rules.ProjectMergeRule;
 import org.apache.calcite.rel.rules.ProjectToWindowRule;
 import org.apache.calcite.rel.rules.PruneEmptyRules;
@@ -284,7 +286,7 @@ public class PlannerTest {
     SqlNode parse = planner.parse(sql);
     SqlNode validate = planner.validate(parse);
     RelNode rel = planner.rel(validate).project();
-    final RelMetadataQuery mq = RelMetadataQuery.instance();
+    final RelMetadataQuery mq = rel.getCluster().getMetadataQuery();
     final RelOptPredicateList predicates = mq.getPulledUpPredicates(rel);
     final String buf = predicates.pulledUpPredicates.toString();
     assertThat(buf, equalTo(expectedPredicates));
@@ -947,14 +949,13 @@ public class PlannerTest {
         + "left join \"depts\" as d on e.\"deptno\" = d.\"deptno\"\n"
         + "join \"dependents\" as p on e.\"empid\" = p.\"empid\"";
     final String expected = ""
-        + "EnumerableProject(empid=[$0], deptno=[$1], name=[$2], salary=[$3], commission=[$4], deptno0=[$5], name0=[$6], employees=[$7], location=[$8], location9=[$9], empid0=[$10], name1=[$11])\n"
-        + "  EnumerableProject(empid=[$2], deptno=[$3], name=[$4], salary=[$5], commission=[$6], deptno0=[$7], name0=[$8], employees=[$9], x=[$10], y=[$11], empid0=[$0], name1=[$1])\n"
-        + "    EnumerableHashJoin(condition=[=($0, $2)], joinType=[inner])\n"
-        + "      EnumerableTableScan(table=[[hr, dependents]])\n"
-        + "      EnumerableHashJoin(condition=[=($1, $5)], joinType=[left])\n"
-        + "        EnumerableTableScan(table=[[hr, emps]])\n"
-        + "        EnumerableProject(deptno=[$0], name=[$1], employees=[$2], x=[$3.x], y=[$3.y])\n"
-        + "          EnumerableTableScan(table=[[hr, depts]])";
+        + "EnumerableProject(empid=[$2], deptno=[$3], name=[$4], salary=[$5], commission=[$6], deptno0=[$7], name0=[$8], employees=[$9], location=[ROW($10, $11)], empid0=[$0], name1=[$1])\n"
+        + "  EnumerableHashJoin(condition=[=($0, $2)], joinType=[inner])\n"
+        + "    EnumerableTableScan(table=[[hr, dependents]])\n"
+        + "    EnumerableHashJoin(condition=[=($1, $5)], joinType=[left])\n"
+        + "      EnumerableTableScan(table=[[hr, emps]])\n"
+        + "      EnumerableProject(deptno=[$0], name=[$1], employees=[$2], x=[$3.x], y=[$3.y])\n"
+        + "        EnumerableTableScan(table=[[hr, depts]])";
     checkHeuristic(sql, expected);
   }
 
@@ -969,15 +970,14 @@ public class PlannerTest {
         + "right join \"depts\" as d on e.\"deptno\" = d.\"deptno\"\n"
         + "join \"dependents\" as p on e.\"empid\" = p.\"empid\"";
     final String expected = ""
-        + "EnumerableProject(empid=[$0], deptno=[$1], name=[$2], salary=[$3], commission=[$4], deptno0=[$5], name0=[$6], employees=[$7], location=[$8], location9=[$9], empid0=[$10], name1=[$11])\n"
-        + "  EnumerableProject(empid=[$2], deptno=[$3], name=[$4], salary=[$5], commission=[$6], deptno0=[$7], name0=[$8], employees=[$9], x=[$10], y=[$11], empid0=[$0], name1=[$1])\n"
-        + "    EnumerableHashJoin(condition=[=($0, $2)], joinType=[inner])\n"
-        + "      EnumerableTableScan(table=[[hr, dependents]])\n"
-        + "      EnumerableProject(empid=[$5], deptno=[$6], name=[$7], salary=[$8], commission=[$9], deptno0=[$0], name0=[$1], employees=[$2], x=[$3], y=[$4])\n"
-        + "        EnumerableHashJoin(condition=[=($0, $6)], joinType=[left])\n"
-        + "          EnumerableProject(deptno=[$0], name=[$1], employees=[$2], x=[$3.x], y=[$3.y])\n"
-        + "            EnumerableTableScan(table=[[hr, depts]])\n"
-        + "          EnumerableTableScan(table=[[hr, emps]])";
+        + "EnumerableProject(empid=[$2], deptno=[$3], name=[$4], salary=[$5], commission=[$6], deptno0=[$7], name0=[$8], employees=[$9], location=[ROW($10, $11)], empid0=[$0], name1=[$1])\n"
+        + "  EnumerableHashJoin(condition=[=($0, $2)], joinType=[inner])\n"
+        + "    EnumerableTableScan(table=[[hr, dependents]])\n"
+        + "    EnumerableProject(empid=[$5], deptno=[$6], name=[$7], salary=[$8], commission=[$9], deptno0=[$0], name0=[$1], employees=[$2], x=[$3], y=[$4])\n"
+        + "      EnumerableHashJoin(condition=[=($0, $6)], joinType=[left])\n"
+        + "        EnumerableProject(deptno=[$0], name=[$1], employees=[$2], x=[$3.x], y=[$3.y])\n"
+        + "          EnumerableTableScan(table=[[hr, depts]])\n"
+        + "        EnumerableTableScan(table=[[hr, emps]])";
     checkHeuristic(sql, expected);
   }
 
@@ -988,14 +988,13 @@ public class PlannerTest {
         + "join \"depts\" as d on e.\"deptno\" = d.\"deptno\"\n"
         + "right join \"dependents\" as p on e.\"empid\" = p.\"empid\"";
     final String expected = ""
-        + "EnumerableProject(empid=[$0], deptno=[$1], name=[$2], salary=[$3], commission=[$4], deptno0=[$5], name0=[$6], employees=[$7], location=[$8], location9=[$9], empid0=[$10], name1=[$11])\n"
-        + "  EnumerableProject(empid=[$2], deptno=[$3], name=[$4], salary=[$5], commission=[$6], deptno0=[$7], name0=[$8], employees=[$9], x=[$10], y=[$11], empid0=[$0], name1=[$1])\n"
-        + "    EnumerableHashJoin(condition=[=($0, $2)], joinType=[left])\n"
-        + "      EnumerableTableScan(table=[[hr, dependents]])\n"
-        + "      EnumerableHashJoin(condition=[=($1, $5)], joinType=[inner])\n"
-        + "        EnumerableTableScan(table=[[hr, emps]])\n"
-        + "        EnumerableProject(deptno=[$0], name=[$1], employees=[$2], x=[$3.x], y=[$3.y])\n"
-        + "          EnumerableTableScan(table=[[hr, depts]])";
+        + "EnumerableProject(empid=[$2], deptno=[$3], name=[$4], salary=[$5], commission=[$6], deptno0=[$7], name0=[$8], employees=[$9], location=[ROW($10, $11)], empid0=[$0], name1=[$1])\n"
+        + "  EnumerableHashJoin(condition=[=($0, $2)], joinType=[left])\n"
+        + "    EnumerableTableScan(table=[[hr, dependents]])\n"
+        + "    EnumerableHashJoin(condition=[=($1, $5)], joinType=[inner])\n"
+        + "      EnumerableTableScan(table=[[hr, emps]])\n"
+        + "      EnumerableProject(deptno=[$0], name=[$1], employees=[$2], x=[$3.x], y=[$3.y])\n"
+        + "        EnumerableTableScan(table=[[hr, depts]])";
     checkHeuristic(sql, expected);
   }
 
@@ -1352,6 +1351,57 @@ public class PlannerTest {
                 RelBuilder.proto(RelFactories.DEFAULT_PROJECT_FACTORY)));
     Planner planner = getPlanner(null, Programs.of(ruleSet));
     planner.close();
+  }
+
+  /** Test case for
+   * <a href="https://issues.apache.org/jira/browse/CALCITE-3376">[CALCITE-3376]
+   * VolcanoPlanner CannotPlanException: best rel is null even though there is
+   * an option with non-infinite cost</a>. */
+  @Test public void testCorrelatedJoinWithIdenticalInputs() throws Exception {
+    final RelBuilder builder = RelBuilder.create(RelBuilderTest.config().build());
+    final RuleSet ruleSet =
+        RuleSets.ofList(
+            JoinToCorrelateRule.INSTANCE,
+            EnumerableRules.ENUMERABLE_CORRELATE_RULE,
+            EnumerableRules.ENUMERABLE_PROJECT_RULE,
+            EnumerableRules.ENUMERABLE_FILTER_RULE,
+            EnumerableRules.ENUMERABLE_SORT_RULE,
+            EnumerableRules.ENUMERABLE_UNION_RULE,
+            EnumerableRules.ENUMERABLE_TABLE_SCAN_RULE);
+
+    builder
+        .scan("EMP")
+        .scan("EMP")
+        .union(true)
+
+        .scan("EMP")
+        .scan("EMP")
+        .union(true)
+
+        .join(
+            JoinRelType.INNER,
+            builder.equals(
+                builder.field(2, 0, "DEPTNO"),
+                builder.field(2, 1, "EMPNO")));
+
+    final RelNode relNode = builder.build();
+    final RelOptPlanner planner = relNode.getCluster().getPlanner();
+    final Program program = Programs.of(ruleSet);
+    final RelTraitSet toTraits = relNode.getTraitSet()
+        .replace(EnumerableConvention.INSTANCE);
+    final RelNode output = program.run(planner, relNode, toTraits,
+        ImmutableList.of(), ImmutableList.of());
+    final String plan = toString(output);
+    assertThat(plan,
+        equalTo(
+            "EnumerableCorrelate(correlation=[$cor0], joinType=[inner], requiredColumns=[{7}])\n"
+            + "  EnumerableUnion(all=[true])\n"
+            + "    EnumerableTableScan(table=[[scott, EMP]])\n"
+            + "    EnumerableTableScan(table=[[scott, EMP]])\n"
+            + "  EnumerableFilter(condition=[=($cor0.DEPTNO, $0)])\n"
+            + "    EnumerableUnion(all=[true])\n"
+            + "      EnumerableTableScan(table=[[scott, EMP]])\n"
+            + "      EnumerableTableScan(table=[[scott, EMP]])\n"));
   }
 
   @Test public void testView() throws Exception {

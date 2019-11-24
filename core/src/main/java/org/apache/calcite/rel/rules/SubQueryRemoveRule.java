@@ -196,8 +196,8 @@ public abstract class SubQueryRemoveRule extends RelOptRule {
       // cross join (
       //   select max(deptno) as m, count(*) as c, count(deptno) as d
       //   from emp) as q
-      builder.push(e.rel).
-          aggregate(builder.groupKey(),
+      builder.push(e.rel)
+          .aggregate(builder.groupKey(),
               builder.aggregateCall(minMax, builder.field(0)).as("m"),
               builder.count(false, "c"),
               builder.count(false, "d", builder.field(0)))
@@ -235,9 +235,9 @@ public abstract class SubQueryRemoveRule extends RelOptRule {
       //   end as v
       // from emp as e
       // left outer join (
-      //   select max(deptno) as m, count(*) as c, count(deptno) as d,
+      //   select name, max(deptno) as m, count(*) as c, count(deptno) as d,
       //       "alwaysTrue" as indicator
-      //   group by name from emp) as q on e.name = q.name
+      //   from emp group by name) as q on e.name = q.name
       builder.push(e.rel)
           .aggregate(builder.groupKey(),
               builder.aggregateCall(minMax, builder.field(0)).as("m"),

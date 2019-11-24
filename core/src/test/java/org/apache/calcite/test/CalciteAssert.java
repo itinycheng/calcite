@@ -35,6 +35,8 @@ import org.apache.calcite.model.ModelHandler;
 import org.apache.calcite.plan.Contexts;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.runtime.CalciteException;
 import org.apache.calcite.runtime.FlatLists;
 import org.apache.calcite.runtime.GeoFunctions;
@@ -42,10 +44,14 @@ import org.apache.calcite.runtime.Hook;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.TableFunction;
+import org.apache.calcite.schema.Wrapper;
 import org.apache.calcite.schema.impl.AbstractSchema;
+import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.calcite.schema.impl.TableFunctionImpl;
 import org.apache.calcite.schema.impl.ViewTable;
 import org.apache.calcite.schema.impl.ViewTableMacro;
+import org.apache.calcite.sql.SqlDialect;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.validate.SqlConformanceEnum;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.calcite.tools.FrameworkConfig;
@@ -666,7 +672,7 @@ public class CalciteAssert {
   }
 
   /** Converts a {@link ResultSet} to a string. */
-  static String toString(ResultSet resultSet) throws SQLException {
+  public static String toString(ResultSet resultSet) throws SQLException {
     return new ResultSetFormatter().resultSet(resultSet).string();
   }
 
@@ -851,7 +857,75 @@ public class CalciteAssert {
                   + " as t(empno, name, deptno, gender, city, empid, age, slacker, manager, joinedat)",
               ImmutableList.of(), ImmutableList.of("POST", "EMPS"),
               null));
+      post.add("TICKER",
+          ViewTable.viewMacro(post,
+            "select * from (values\n"
+                + "    ('ACME', '2017-12-01', 12),\n"
+                + "    ('ACME', '2017-12-02', 17),\n"
+                + "    ('ACME', '2017-12-03', 19),\n"
+                + "    ('ACME', '2017-12-04', 21),\n"
+                + "    ('ACME', '2017-12-05', 25),\n"
+                + "    ('ACME', '2017-12-06', 12),\n"
+                + "    ('ACME', '2017-12-07', 15),\n"
+                + "    ('ACME', '2017-12-08', 20),\n"
+                + "    ('ACME', '2017-12-09', 24),\n"
+                + "    ('ACME', '2017-12-10', 25),\n"
+                + "    ('ACME', '2017-12-11', 19),\n"
+                + "    ('ACME', '2017-12-12', 15),\n"
+                + "    ('ACME', '2017-12-13', 25),\n"
+                + "    ('ACME', '2017-12-14', 25),\n"
+                + "    ('ACME', '2017-12-15', 14),\n"
+                + "    ('ACME', '2017-12-16', 12),\n"
+                + "    ('ACME', '2017-12-17', 14),\n"
+                + "    ('ACME', '2017-12-18', 24),\n"
+                + "    ('ACME', '2017-12-19', 23),\n"
+                + "    ('ACME', '2017-12-20', 22))\n"
+                + " as t(SYMBOL, tstamp, price)",
+            ImmutableList.<String>of(), ImmutableList.of("POST", "TICKER"),
+            null));
       return post;
+    case FAKE_FOODMART:
+      // Similar to FOODMART, but not based on JdbcSchema.
+      // Contains 2 tables that do not extend JdbcTable.
+      // They redirect requests for SqlDialect and DataSource to the real JDBC
+      // FOODMART, and this allows statistics queries to be executed.
+      foodmart = addSchemaIfNotExists(rootSchema, SchemaSpec.JDBC_FOODMART);
+      final Wrapper salesTable = (Wrapper) foodmart.getTable("sales_fact_1997");
+      SchemaPlus fake =
+          rootSchema.add(schema.schemaName, new AbstractSchema());
+      fake.add("time_by_day", new AbstractTable() {
+        public RelDataType getRowType(RelDataTypeFactory typeFactory) {
+          return typeFactory.builder()
+              .add("time_id", SqlTypeName.INTEGER)
+              .add("the_year", SqlTypeName.INTEGER)
+              .build();
+        }
+
+        public <C> C unwrap(Class<C> aClass) {
+          if (aClass.isAssignableFrom(SqlDialect.class)
+              || aClass.isAssignableFrom(DataSource.class)) {
+            return salesTable.unwrap(aClass);
+          }
+          return super.unwrap(aClass);
+        }
+      });
+      fake.add("sales_fact_1997", new AbstractTable() {
+        public RelDataType getRowType(RelDataTypeFactory typeFactory) {
+          return typeFactory.builder()
+              .add("time_id", SqlTypeName.INTEGER)
+              .add("customer_id", SqlTypeName.INTEGER)
+              .build();
+        }
+
+        public <C> C unwrap(Class<C> aClass) {
+          if (aClass.isAssignableFrom(SqlDialect.class)
+              || aClass.isAssignableFrom(DataSource.class)) {
+            return salesTable.unwrap(aClass);
+          }
+          return super.unwrap(aClass);
+        }
+      });
+      return fake;
     case AUX:
       SchemaPlus aux =
           rootSchema.add(schema.schemaName, new AbstractSchema());
@@ -1856,6 +1930,7 @@ public class CalciteAssert {
   /** Specification for common test schemas. */
   public enum SchemaSpec {
     REFLECTIVE_FOODMART("foodmart"),
+    FAKE_FOODMART("foodmart"),
     JDBC_FOODMART("foodmart"),
     CLONE_FOODMART("foodmart2"),
     JDBC_FOODMART_WITH_LATTICE("lattice"),

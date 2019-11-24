@@ -37,6 +37,7 @@ import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql.validate.SqlValidatorImpl;
 import org.apache.calcite.sql.validate.SqlValidatorScope;
+import org.apache.calcite.sql.validate.implicit.TypeCoercion;
 import org.apache.calcite.util.Pair;
 
 import com.google.common.collect.Iterables;
@@ -204,7 +205,7 @@ public class SqlCaseOperator extends SqlOperator {
     if (!foundNotNull) {
       // according to the sql standard we can not have all of the THEN
       // statements and the ELSE returning null
-      if (throwOnFailure) {
+      if (throwOnFailure && !callBinding.getValidator().isTypeCoercionEnabled()) {
         throw callBinding.newError(RESOURCE.mustNotNullInElse());
       }
       return false;
@@ -247,7 +248,25 @@ public class SqlCaseOperator extends SqlOperator {
 
     RelDataType ret = callBinding.getTypeFactory().leastRestrictive(argTypes);
     if (null == ret) {
-      throw callBinding.newValidationError(RESOURCE.illegalMixingOfTypes());
+      boolean coerced = false;
+      if (callBinding.getValidator().isTypeCoercionEnabled()) {
+        TypeCoercion typeCoercion = callBinding.getValidator().getTypeCoercion();
+        RelDataType commonType = typeCoercion.getWiderTypeFor(argTypes, true);
+        // commonType is always with nullability as false, we do not consider the
+        // nullability when deducing the common type. Use the deduced type
+        // (with the correct nullability) in SqlValidator
+        // instead of the commonType as the return type.
+        if (null != commonType) {
+          coerced = typeCoercion.caseWhenCoercion(callBinding);
+          if (coerced) {
+            ret = callBinding.getValidator()
+                .deriveType(callBinding.getScope(), callBinding.getCall());
+          }
+        }
+      }
+      if (!coerced) {
+        throw callBinding.newValidationError(RESOURCE.illegalMixingOfTypes());
+      }
     }
     final SqlValidatorImpl validator =
         (SqlValidatorImpl) callBinding.getValidator();
@@ -262,7 +281,8 @@ public class SqlCaseOperator extends SqlOperator {
       List<RelDataType> argTypes) {
     assert (argTypes.size() % 2) == 1 : "odd number of arguments expected: "
         + argTypes.size();
-    assert argTypes.size() > 1 : argTypes.size();
+    assert argTypes.size() > 1 : "CASE must have more than 1 argument. Given "
+      + argTypes.size() + ", " + argTypes;
     List<RelDataType> thenTypes = new ArrayList<>();
     for (int j = 1; j < (argTypes.size() - 1); j += 2) {
       thenTypes.add(argTypes.get(j));

@@ -23,8 +23,6 @@ import org.apache.calcite.linq4j.Linq4j;
 import org.apache.calcite.linq4j.function.Function1;
 import org.apache.calcite.linq4j.function.Function2;
 
-import static org.apache.calcite.linq4j.function.Functions.nullsComparator;
-
 import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -34,6 +32,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+
+import static org.apache.calcite.linq4j.function.Functions.nullsComparator;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -210,6 +210,13 @@ public final class JoinPreserveOrderTest {
     testJoin(semiJoin(), AssertOrder.PRESERVED, AssertOrder.IGNORED);
   }
 
+  @Test public void testCorrelateBatchJoin() {
+    testJoin(
+        correlateBatchJoin(JoinType.INNER),
+        AssertOrder.PRESERVED,
+        AssertOrder.IGNORED);
+  }
+
   @Test public void testAntiDefaultJoinPreservesOrderOfLeftInput() {
     testJoin(antiJoin(), AssertOrder.PRESERVED, AssertOrder.IGNORED);
   }
@@ -287,6 +294,22 @@ public final class JoinPreserveOrderTest {
             right,
             emp -> emp.deptno,
             dept -> dept.deptno).select(emp -> Arrays.asList(emp.eid, null));
+  }
+
+  private JoinAlgorithm<Employee, Department, List<Integer>> correlateBatchJoin(
+      JoinType joinType) {
+    return (left, right) ->
+        EnumerableDefaults.correlateBatchJoin(
+            joinType,
+            left,
+            emp -> right.where(dept ->
+                    dept.deptno != null
+                        && (dept.deptno.equals(emp.get(0).deptno)
+                        || dept.deptno.equals(emp.get(1).deptno)
+                        || dept.deptno.equals(emp.get(2).deptno))),
+            RESULT_SELECTOR,
+            (emp, dept) -> dept.deptno.equals(emp.deptno),
+             3);
   }
 
   /**
@@ -392,6 +415,7 @@ public final class JoinPreserveOrderTest {
       new Employee(120, "Ilias", 30),
       new Employee(130, "Ruben", 40),
       new Employee(140, "Tanguy", 50),
+      new Employee(145, "Khawla", 40),
       new Employee(150, "Andrew", -10),
       // Nulls on name
       new Employee(160, null, 60),
