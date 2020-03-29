@@ -82,7 +82,7 @@ public class CsvTableScan extends TableScan implements EnumerableRel {
   }
 
   @Override public RelOptCost computeSelfCost(RelOptPlanner planner,
-      RelMetadataQuery mq) {
+      RelMetadataQuery mq) { //tiny note: called by VolcanoPlanner.register->VolcanoPlanner.addRelToSet->RelSubSet.propagateCostImprovements->RelMetadataQuery.getNonCumulativeCost
     // Multiply the cost by a factor that makes a scan more attractive if it
     // has significantly fewer fields than the original scan.
     //

@@ -20,6 +20,7 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParser;
+import org.apache.calcite.sql.parser.impl.SqlParserImpl;
 import org.apache.calcite.sql.util.ChainedSqlOperatorTable;
 import org.apache.calcite.sql.validate.SqlConformanceEnum;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
@@ -89,6 +90,7 @@ public class CSvTest1 {
 
     private SqlParser.Config getSqlParserConfig() {
         return SqlParser.configBuilder()
+                .setParserFactory(SqlParserImpl.FACTORY)
                 .setCaseSensitive(false)
                 .setQuoting(Quoting.BACK_TICK)
                 .setQuotedCasing(Casing.TO_UPPER)

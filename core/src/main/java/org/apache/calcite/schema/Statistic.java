@@ -30,7 +30,7 @@ import java.util.List;
  *
  * @see Statistics
  */
-public interface Statistic {
+public interface Statistic { // tiny note: table statistic, can be used to compute cost of RelNode in findBestExp
   /** Returns the approximate number of rows in the table. */
   Double getRowCount();
 
